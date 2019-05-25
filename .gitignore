@@ -1,3 +1,9 @@
+# Proprietary flight-test data
+data/unStabAC_sim.asc
+data/hfb320_1_10.asc
+
+###### Github-Python .gitignore ######
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
