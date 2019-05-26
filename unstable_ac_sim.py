@@ -6,6 +6,10 @@ Flight Vehicle System Identification: A Time-Domain Methodology, Second Edition
 by Ravindra V. Jategaonkar, Senior Scientist, Institute of Flight Systems, DLR.
 The example is described in detail in Section 9.16.1, with the nominal values 
 and estimates from other methods presented in Table 9.1.
+
+The test data for this experiment can be downloaded, free of charge, from 
+<https://arc.aiaa.org/doi/suppl/10.2514/4.102790>. To use it, extract 
+`unStabAC_sim.asc` from `flt_data.zip` into the `data/` directory.
 """
 
 
