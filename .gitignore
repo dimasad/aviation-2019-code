@@ -2,6 +2,17 @@
 data/unStabAC_sim.asc
 data/hfb320_1_10.asc
 
+# Proprietary results
+results/hfb_u.txt
+results/hfb_xopt.txt
+results/hfb_yopt.txt
+results/hfb_z.txt
+results/uac_u.txt
+results/uac_xopt.txt
+results/uac_yopt.txt
+results/uac_z.txt
+
+
 ###### Github-Python .gitignore ######
 
 # Byte-compiled / optimized / DLL files
