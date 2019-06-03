@@ -141,7 +141,7 @@ if __name__ == '__main__':
     problem.set_decision_item('y1_std', 0.00025, dec_L)
     for k in range(1, nmode + 1):
         problem.set_decision_item(f'sigma{k}', 0, dec_U)
-        problem.set_decision_item(f'omega{k}', 2 * 2 * np.pi, dec_L)
+        problem.set_decision_item(f'omega{k}', 6 * 2 * np.pi, dec_L)
         problem.set_decision_item(f'omega{k}', 50 * 2 * np.pi, dec_U)
     
     constr_bounds = np.zeros((2, problem.ncons))
