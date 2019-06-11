@@ -165,7 +165,6 @@ if __name__ == '__main__':
                    59.029,
                    48.989,
                    48.901]
-    omega_guess = np.linspace(4, 30, 12)
     for k, omega in enumerate(omega_guess):
         problem.set_decision_item(f'b{k+1}', 1, dec0)
         problem.set_decision_item(f'omega{k+1}', omega, dec0)
