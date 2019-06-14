@@ -165,22 +165,15 @@ if __name__ == '__main__':
         tspan = [t0, t0+0.99]
         xini = interpolate.interp1d(tdata, ydata.T[:4])(t0)
         sol_ms = integrate.solve_ivp(odefun, tspan, xini, max_step=0.1)
-        for t, x in zip(sol_ms.t, sol_ms.y.T):
-            print(t, *x, file=ms_file)
+        for tsol, x in zip(sol_ms.t, sol_ms.y.T):
+            print(tsol, *x, file=ms_file)
         print(t0 + 1.0, *['nan'] * 4, file=ms_file)
     ms_file.close()
     
-    raise SystemExit
     # Create OEM problem
     problem = oem.Problem(model, t, y, u)
     tc = problem.tc
-    
-    # Set bounds
-    constr_bounds = np.zeros((2, problem.ncons))
-    dec_L, dec_U = np.repeat([[-np.inf], [np.inf]], problem.ndec, axis=-1)
-    for k,v in lower.items():
-        problem.set_decision_item(k, v, dec_L)
-    
+        
     # Set initial guess
     x0 = interpolate.interp1d(tdata, ydata.T[:4])(tc).T
     p0 = np.zeros(model.np)
@@ -189,6 +182,21 @@ if __name__ == '__main__':
     problem.set_decision('x', x0, dec0)
     problem.set_decision('p', p0, dec0)
     
+    # Get and save the defects for the initial guess
+    def0 = problem.constraint(dec0).reshape((-1, model.nx))
+    np.savetxt(
+        'results/hfb_collocation_defects.txt', 
+        np.c_[t[:-1], x0[:-1], np.abs(def0)]
+    )
+    raise SystemExit
+
+    # Set bounds
+    constr_bounds = np.zeros((2, problem.ncons))
+    dec_L, dec_U = np.repeat([[-np.inf], [np.inf]], problem.ndec, axis=-1)
+    for k,v in lower.items():
+        problem.set_decision_item(k, v, dec_L)
+    
+
     # Set problem scaling
     dec_scale = np.ones(problem.ndec)
     problem.set_decision_item('V', 1e-2, dec_scale)
