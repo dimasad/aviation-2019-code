@@ -1,7 +1,7 @@
 """Output error method estimation of the longitudinal parameters of an HFB-320.
 
-The parameters are estimated from several random starting values for the 
-nonlinear optimization.
+This script generates the data for the plots used in the conference
+presentation.
 
 This example corresponds to the test case #4 of the 4th chapter of the book
 Flight Vehicle System Identification: A Time-Domain Methodology, Second Edition
@@ -118,6 +118,20 @@ class HFB320Long:
         )
 
 
+class HistorySavingOEMProblem(oem.Problem):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dvec_history = []
+        
+    def variables(self, dvec):
+        if not self.dvec_history or np.any(self.dvec_history[-1] - dvec):
+            self.dvec_history.append(dvec.copy())
+        return super().variables(dvec)
+
+    def nsv(self, dvec):
+        return super().variables(dvec)
+
+
 if __name__ == '__main__':
     given = {'g0': 9.80665, 'Sbym': 4.0280e-3, 'ScbyIy': 8.0027e-4, 
              'FEIYLT': -7.0153e-6, 'V0': 104.67, 'mass':7472, 'sigmaT':0.0524,
@@ -171,7 +185,7 @@ if __name__ == '__main__':
     ms_file.close()
     
     # Create OEM problem
-    problem = oem.Problem(model, t, y, u)
+    problem = HistorySavingOEMProblem(model, t, y, u)
     tc = problem.tc
         
     # Set initial guess
@@ -188,15 +202,13 @@ if __name__ == '__main__':
         'results/hfb_collocation_defects.txt', 
         np.c_[t[:-1], x0[:-1], np.abs(def0)]
     )
-    raise SystemExit
-
+    
     # Set bounds
     constr_bounds = np.zeros((2, problem.ncons))
     dec_L, dec_U = np.repeat([[-np.inf], [np.inf]], problem.ndec, axis=-1)
     for k,v in lower.items():
         problem.set_decision_item(k, v, dec_L)
     
-
     # Set problem scaling
     dec_scale = np.ones(problem.ndec)
     problem.set_decision_item('V', 1e-2, dec_scale)
@@ -210,13 +222,15 @@ if __name__ == '__main__':
     problem.set_decision_item('qdot_meas_std', 1/0.025, dec_scale)
     problem.set_decision_item('ax_meas_std', 1/0.03, dec_scale)
     problem.set_decision_item('az_meas_std', 1/0.03, dec_scale)
-
+    
     # Set constraint scaling
     constr_scale = np.ones(problem.ncons)
     problem.set_defect_scale('V', 1e-2, constr_scale)
     problem.set_defect_scale('alpha', 20, constr_scale)
     problem.set_defect_scale('q', 30, constr_scale)
     problem.set_defect_scale('theta', 20, constr_scale)
+    
+    problem.dvec_history.clear()
 
     # Run estimation starting with zero for the dynamic system parameters
     with problem.ipopt((dec_L, dec_U), constr_bounds) as nlp:
@@ -224,57 +238,15 @@ if __name__ == '__main__':
         nlp.add_num_option('tol', 1e-6)
         nlp.set_scaling(-1, dec_scale, constr_scale)
         decopt, info = nlp.solve(dec0)
-    
-    # Save the results for this initial estimation and the parameter values
-    opt = problem.variables(decopt)
-    popt_best = opt['p']
-    yopt = model.g(opt['x'], problem.u, opt['p'])
-    os.makedirs('results', exist_ok=True)
-    np.savetxt('results/hfb_u.txt', np.c_[tc, problem.u])
-    np.savetxt('results/hfb_xopt.txt', np.c_[tc, opt['x']])
-    np.savetxt('results/hfb_popt.txt', opt['p'])
-    np.savetxt('results/hfb_yopt.txt', np.c_[tc, yopt])
-    np.savetxt('results/hfb_z.txt', np.c_[t, y])
-    
-    # Repeat for random starting values
-    for i in range(1000):
-        # Initialize random number generator
-        np.random.seed(i)
-        
-        # Sample the starting value
-        problem.set_decision_item("CD0", np.random.uniform(0, 0.5), dec0)
-        problem.set_decision_item("CDV", np.random.uniform(-0.5, 0.5), dec0)
-        problem.set_decision_item("CDa", np.random.uniform(0, 1), dec0)
-        problem.set_decision_item("CL0", np.random.uniform(0, 2), dec0)
-        problem.set_decision_item("CLV", np.random.uniform(-2, 2), dec0)
-        problem.set_decision_item("CLa", np.random.uniform(0, 10), dec0)
-        problem.set_decision_item("Cm0", np.random.uniform(0, 0.5), dec0)
-        problem.set_decision_item("CmV", np.random.uniform(0, 0.5), dec0)
-        problem.set_decision_item("Cma", np.random.uniform(-5, 1), dec0)
-        problem.set_decision_item("Cmq", np.random.uniform(-50, 0), dec0)
-        problem.set_decision_item("Cmde", np.random.uniform(-10, 0), dec0)
-        p0 = problem.unpack_decision(dec0)['p']
-        
-        # Create the results folder
-        os.makedirs(f'results/hfb_mc_{i:04}', exist_ok=True)
 
-        # Save the starting parameters
-        np.savetxt(f'results/hfb_mc_{i:04}/p0.txt', p0)
+    # Get the decision variable histories
+    p_history = np.array([problem.nsv(d)['p'] for d in problem.dvec_history])
+    x_history = np.array([problem.nsv(d)['x'] for d in problem.dvec_history])
 
-        # Run the estimation
-        with problem.ipopt((dec_L, dec_U), constr_bounds) as nlp:
-            nlp.add_str_option('linear_solver', 'ma57')
-            nlp.add_num_option('tol', 1e-6)
-            nlp.add_num_option('ma57_pre_alloc', 1e3)
-            nlp.set_scaling(-1, dec_scale, constr_scale)
-            decopt, info = nlp.solve(dec0)
-        
-        # Save the estimation results
-        opt = problem.variables(decopt)
-        popt = opt['p']
-        perr = np.max(np.abs(popt - popt_best))
-        print(f'Parameter error: {perr}')
-        np.savetxt(f'results/hfb_mc_{i:04}/popt.txt', popt)
-        np.savetxt(f'results/hfb_mc_{i:04}/perr.txt', [perr])
-        if perr > 1e-7:
-            np.savetxt(f'results/hfb_mc_{i:04}/status_diverged.txt', [1])
+    # Save the iteration parameters and the states maxima and minima
+    xmax = np.max(x_history, axis=0)
+    xmin = np.min(x_history, axis=0)
+    np.savetxt('results/hfb_xmax_iter.txt', np.c_[tc, xmax])
+    np.savetxt('results/hfb_xmin_iter.txt', np.c_[tc, xmin])
+    np.savetxt('results/hfb_p_iter.txt', p_history)
+    
